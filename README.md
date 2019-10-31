@@ -14,7 +14,13 @@ To be added [Planned]:
 * Query Block
 * Invoke Contract
 
-## 2. Usage
+## 2. Requirements
+
+This SDK is based on `.Net Core 3.x`, please make sure you've installed lastes .Net Core SDK on your environment.
+
+Windows/Linux/MacOS are all supported, but only tested on MacOS :).
+
+## 3. Usage
 
 Please referring to `Program.cs`, create a instance of `XChainSDK.XChainClient`.
 
