@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Newtonsoft.Json;
 
 namespace XChainSDK
@@ -86,16 +87,26 @@ namespace XChainSDK
         public string ModuleName { get; set; }
 
         [JsonProperty(PropertyName = "contract_name")]
+        [DefaultValue("")]
         public string ContractName { get; set; }
 
         [JsonProperty(PropertyName = "method_name")]
         public string MethodName { get; set; }
 
         [JsonProperty(PropertyName = "args")]
-        public Dictionary<string, byte[]> Args { get; set; }
+        public SortedDictionary<string, byte[]> Args { get; set; }
+
+        [JsonProperty(PropertyName = "resource_limits")]
+        public List<ResourceLimit> ResourceLimits { get; set; }
 
         [JsonProperty(PropertyName = "amount")]
         public string Amount { get; set; }
+
+        public InvokeRequest()
+        {
+            this.Args = new SortedDictionary<string, byte[]>();
+            this.ResourceLimits = new List<ResourceLimit>();
+        }
     }
 
     class SignatureInfo
@@ -113,10 +124,10 @@ namespace XChainSDK
         public byte[] Blockid { get; set; }
 
         [JsonProperty(PropertyName = "tx_inputs")]
-        public TxInput[] TxInputs { get; set; }
+        public List<TxInput> TxInputs { get; set; }
 
         [JsonProperty(PropertyName = "tx_outputs")]
-        public TxOutput[] TxOutputs { get; set; }
+        public List<TxOutput> TxOutputs { get; set; }
 
         [JsonProperty(PropertyName = "desc")]
         public byte[] Desc { get; set; }
@@ -137,25 +148,25 @@ namespace XChainSDK
         public bool Autogen { get; set; }
 
         [JsonProperty(PropertyName = "tx_inputs_ext")]
-        public TxInputExt[] TxInputsExt { get; set; }
+        public List<TxInputExt> TxInputsExt { get; set; }
 
         [JsonProperty(PropertyName = "tx_outputs_ext")]
-        public TxOutputExt[] TxOutputsExt { get; set; }
+        public List<TxOutputExt> TxOutputsExt { get; set; }
 
         [JsonProperty(PropertyName = "contract_requests")]
-        public InvokeRequest[] ContractRequests { get; set; }
+        public List<InvokeRequest> ContractRequests { get; set; }
 
         [JsonProperty(PropertyName = "initiator")]
         public string Initiator { get; set; }
 
         [JsonProperty(PropertyName = "auth_require")]
-        public string[] AuthRequire { get; set; }
+        public List<string> AuthRequire { get; set; }
 
         [JsonProperty(PropertyName = "initiator_signs")]
-        public SignatureInfo[] InitiatorSigns { get; set; }
+        public List<SignatureInfo> InitiatorSigns { get; set; }
 
         [JsonProperty(PropertyName = "auth_require_signs")]
-        public SignatureInfo[] AuthRequireSigns { get; set; }
+        public List<SignatureInfo> AuthRequireSigns { get; set; }
 
         [JsonProperty(PropertyName = "received_timestamp")]
         public Int64 ReceivedTimestamp { get; set; }

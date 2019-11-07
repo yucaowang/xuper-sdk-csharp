@@ -7,12 +7,15 @@ This is a sample C# SDK for XuperUnion.
 Now only support the following operations:
 
 * Query Account Balance
+* Query TX
 * Transfer
+* Create Contract Account
+* Deploy WASM Contract
+* Invoke Contract
 
 To be added [Planned]:
-* Query Tx
 * Query Block
-* Invoke Contract
+* Query Contract
 
 ## 2. Requirements
 

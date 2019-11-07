@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package pb;
 
+
 enum XChainErrorEnum {
   SUCCESS = 0;
   UNKNOW_ERROR = 1;
@@ -69,6 +70,12 @@ service Xchain {
   // GetBalance get balance of an address,
   // Address is required for this
   rpc GetBalance(AddressStatus) returns (AddressStatus);
+  
+  // GetFrozenBalance get two kinds of balance
+  // 1. Still be frozen of an address
+  // 2. Available now of an address
+  // Address is required for this
+  rpc GetBalanceDetail(AddressBalanceStatus) returns (AddressBalanceStatus);
 
   // GetFrozenBalance get balance that still be frozen of an address,
   // Address is required for this
@@ -90,14 +97,13 @@ service Xchain {
   rpc GetSystemStatus(CommonIn) returns (SystemsStatusReply);
 
   // GetNetURL return net url
-  rpc GetNetURL(CommonIn) returns (RawUrl);
+  rpc GetNetURL(CommonIn) returns (RawUrl) {}
 
   // 新的Select utxos接口, 不需要签名，可以支持选择账户的utxo
   rpc SelectUTXO(UtxoInput) returns (UtxoOutput);
 
   // PreExecWithSelectUTXO preExec & selectUtxo
-  rpc PreExecWithSelectUTXO(PreExecWithSelectUTXORequest)
-      returns (PreExecWithSelectUTXOResponse);
+  rpc PreExecWithSelectUTXO(PreExecWithSelectUTXORequest) returns (PreExecWithSelectUTXOResponse);
 
   // Native code deploy interface
   rpc DeployNativeCode(DeployNativeCodeRequest)
@@ -137,15 +143,14 @@ service Xchain {
 }
 
 message Header {
-  string logid = 1; //如果logid没填写，生成一个
-  string from_node =
-      2; // call rpc client address，客户端可以为空，节点一定要写自己的address
+  string logid = 1;  //如果logid没填写，生成一个
+  string from_node = 2;  //call rpc client address，客户端可以为空，节点一定要写自己的address
   XChainErrorEnum error = 3;
 }
 
 message TxDataAccount {
-  string address = 1;      //地址
-  string amount = 2;       //金额
+  string address = 1;  //地址
+  string amount = 2;  //金额
   int64 frozen_height = 3; //冻结高度
 }
 
@@ -179,8 +184,8 @@ message TxStatus {
   Header header = 1;
   string bcname = 2;
   bytes txid = 3;
-  TransactionStatus status = 4; //当前状态
-  int64 distance = 5;           //离主干末端的距离（如果在主干上)
+  TransactionStatus status = 4;  //当前状态
+  int64 distance = 5;  //离主干末端的距离（如果在主干上)
   Transaction tx = 7;
 }
 
@@ -208,7 +213,7 @@ message BlockID {
   string bcname = 1;
   bytes blockid = 2;
   // if need content
-  bool need_content = 3; //是否需要内容
+  bool need_content = 3;  //是否需要内容
 }
 
 message BlockHeight {
@@ -233,6 +238,26 @@ message AddressStatus {
   repeated TokenDetail bcs = 3;
 }
 
+message TokenFrozenDetail
+{
+  string balance = 1;
+  bool isFrozen = 2;
+}
+
+message TokenFrozenDetails
+{
+  string bcname = 1;
+  repeated TokenFrozenDetail tfd = 2;
+  XChainErrorEnum error  = 3;
+}
+
+message AddressBalanceStatus
+{
+  Header header = 1;
+  string address = 2;
+  repeated TokenFrozenDetails tfds = 3;
+}
+
 // Transaction input
 message TxInput {
   // The transaction id referenced to
@@ -255,6 +280,12 @@ message TxOutput {
   bytes to_addr = 2;
   // Fronzen height
   int64 frozen_height = 4;
+}
+
+// Unified Xuper Signature
+message XuperSignature {
+  repeated bytes public_keys = 1;
+  bytes signature = 2;
 }
 
 // Transaction is the information of the transaction
@@ -295,6 +326,10 @@ message Transaction {
   repeated SignatureInfo auth_require_signs = 29;
   // 节点收到tx的时间戳，不参与签名
   int64 received_timestamp = 30;
+  // 统一签名(支持多重签名/环签名等，与initiator_signs/auth_require_signs不同时使用)
+  XuperSignature xuper_sign = 31;
+  // 可修改区块链标记
+  ModifyBlock modify_block = 32;
 }
 
 // Ledger metadata
@@ -305,19 +340,21 @@ message LedgerMeta {
   bytes tip_blockid = 2;
   // the height of the trunk
   int64 trunk_height = 3;
-  // max block size
-  int64 max_block_size = 4;
-  // preset contracts
-  repeated InvokeRequest reserved_contracts = 5;
 }
 
 // Utxo metadata
 message UtxoMeta {
   bytes latest_blockid = 1; // utxo vm目前执行到的blockid
   repeated string lock_key_list = 2;
-  string utxo_total = 3;       //当前utxo vm上的总资产
-  int64 avgDelay = 4;          //平均上链延时
-  int64 unconfirmTxAmount = 5; //待确认交易量
+  string utxo_total = 3;       // 当前utxo vm上的总资产
+  int64 avgDelay = 4;          // 平均上链延时
+  int64 unconfirmTxAmount = 5; // 待确认交易量
+  int64 max_block_size = 6;    // max block size
+  repeated InvokeRequest reserved_contracts = 7;       // preset contracts
+  InvokeRequest forbidden_contract = 8;        // reset forbidden contract configuration
+  int64 new_account_resource_amount = 9;	// the resource amount of creating an account
+  int64 irreversibleBlockHeight = 10;	// 当前不可逆区块高度，与utxo对齐
+  int64 irreversibleSlideWindow = 11;	// 当前不可逆区块高度调整窗口
 }
 
 // The internal block struct
@@ -347,14 +384,14 @@ message InternalBlock {
   repeated Transaction transactions = 11;
   // The transaction count of the block
   int32 tx_count = 12;
-  //所有交易hash的merkle tree
+  // 所有交易hash的merkle tree
   repeated bytes merkle_tree = 13;
   int64 curTerm = 16;
   int64 curBlockNum = 17;
   map<string, string> failed_txs = 18; // txid -> failed reason
   int32 targetBits = 19;
-
-  //下面的属性会动态变化
+  
+  // 下面的属性会动态变化
   // If the block is on the trunk
   bool in_trunk = 14;
   // Next next block which on trunk
@@ -633,25 +670,31 @@ message InvokeRPCResponse {
   InvokeResponse response = 3;
 }
 
-//预执行的请求结构
+// 预执行的请求结构
 message InvokeRequest {
   string module_name = 1;
   string contract_name = 2;
   string method_name = 3;
   map<string, bytes> args = 4;
   repeated ResourceLimit resource_limits = 5;
+  // amount is the amount transfer to the contract
+  // attention: In one transaction, transfer to only one contract is allowed
+  string amount = 6;
 }
 
-//预执行的返回结构
+// 预执行的返回结构
 message InvokeResponse {
   repeated TxInputExt inputs = 1;
   repeated TxOutputExt outputs = 2;
   repeated bytes response = 3;
   int64 gas_used = 4;
   repeated InvokeRequest requests = 5;
+  repeated ContractResponse responses = 6;
+  repeated TxInput utxoInputs = 7;
+  repeated TxOutput utxoOutputs = 8;
 }
 
-//扩展输入
+// 扩展输入
 message TxInputExt {
   string bucket = 1;
   bytes key = 2;
@@ -659,7 +702,7 @@ message TxInputExt {
   int32 ref_offset = 4;
 }
 
-//扩展输出
+// 扩展输出
 message TxOutputExt {
   string bucket = 1;
   bytes key = 2;
@@ -690,7 +733,7 @@ message PermissionModel {
 
 // AK集的表示方法
 message AkSet {
-  repeated string aks = 1; //一堆公钥
+  repeated string aks = 1; // 一堆公钥
 }
 message AkSets {
   map<string, AkSet> sets = 1; // 公钥or账户名集
@@ -792,3 +835,24 @@ message PreExecWithSelectUTXOResponse {
   // for preExec & selectUTXO
   UtxoOutput utxoOutput = 4;
 }
+
+// ContractResponse is the response returnd by contract
+message ContractResponse {
+  int32  status = 1;
+  string message = 2;
+  bytes  body = 3;
+}
+
+message ModifyBlock {
+  // txid交易被effective_txid的交易提出可修改区块链的请求
+  string effective_txid = 1;
+  // 本交易是否已被修改标记
+  bool marked = 2;
+  // txid交易被修改生效的高度
+  int64 effective_height = 3;
+  // 监管的public key
+  string public_key = 4;
+  // 监管地址对修改的交易id的签名
+  string sign = 5;
+}
+

@@ -27,11 +27,11 @@ namespace XChainSDK
             {
                 Formatting = Formatting.None,
                 DefaultValueHandling = DefaultValueHandling.Ignore,
-                NullValueHandling = NullValueHandling.Include,
+                NullValueHandling = NullValueHandling.Ignore,
             };
             if (tx.TxInputs != null)
             {
-                for (var i = 0; i < tx.TxInputs.Length; i++)
+                for (var i = 0; i < tx.TxInputs.Count; i++)
                 {
                     var input = tx.TxInputs[i];
                     if (input.RefTxid.Length > 0)
@@ -61,7 +61,7 @@ namespace XChainSDK
             encoded += JsonConvert.SerializeObject(tx.Version) + "\n";
             if (tx.TxInputsExt != null)
             {
-                for (var i = 0; i < tx.TxInputsExt.Length; i++)
+                for (var i = 0; i < tx.TxInputsExt.Count; i++)
                 {
                     var input = tx.TxInputsExt[i];
                     encoded += JsonConvert.SerializeObject(input.Bucket) + "\n";
@@ -93,8 +93,7 @@ namespace XChainSDK
                 }
             }
 
-
-            encoded += (JsonConvert.SerializeObject(tx.ContractRequests) + "\n");
+            encoded += (JsonConvert.SerializeObject(tx.ContractRequests, settings) + "\n");
             encoded += (JsonConvert.SerializeObject(tx.Initiator) + "\n");
             encoded += (JsonConvert.SerializeObject(tx.AuthRequire) + "\n");
 
@@ -106,6 +105,7 @@ namespace XChainSDK
 
             encoded += (JsonConvert.SerializeObject(tx.Coinbase) + "\n");
             encoded += (JsonConvert.SerializeObject(tx.Autogen) + "\n");
+            Console.WriteLine("Debug: digest=\n" + encoded);
             var encodedBytes = Encoding.ASCII.GetBytes(encoded);
             return XCrypto.DoubleSha256(encodedBytes);
         }

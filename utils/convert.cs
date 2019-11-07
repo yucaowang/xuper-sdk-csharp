@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Google.Protobuf;
 
@@ -32,6 +33,16 @@ namespace XChainSDK
             return signed;
         }
 
+        public static BigInteger NumberBytesToBigInteger(byte[] number)
+        {
+            if (number != null)
+            {
+                Array.Reverse(number, 0, number.Length);
+                return new BigInteger(number);
+            }
+            return new BigInteger(0);
+        }
+
         public static byte[] GetECBytesFromBigInteger(BigInteger val)
         {
             var vBytes = SignedBytesToUnsigned(val.ToByteArray());
@@ -47,7 +58,7 @@ namespace XChainSDK
             {
                 pbtx.Blockid = ByteString.CopyFrom(tx.Blockid);
             }
-            if (tx.TxInputs != null && tx.TxInputs.Length > 0)
+            if (tx.TxInputs != null && tx.TxInputs.Count > 0)
             {
                 foreach (var input in tx.TxInputs)
                 {
@@ -62,7 +73,7 @@ namespace XChainSDK
                 }
             }
 
-            if (tx.TxOutputs != null && tx.TxOutputs.Length > 0)
+            if (tx.TxOutputs != null && tx.TxOutputs.Count > 0)
             {
                 foreach (var output in tx.TxOutputs)
                 {
@@ -84,7 +95,7 @@ namespace XChainSDK
             pbtx.Version = tx.Version;
             pbtx.Autogen = tx.Autogen;
 
-            if (tx.TxInputsExt != null && tx.TxInputsExt.Length > 0)
+            if (tx.TxInputsExt != null && tx.TxInputsExt.Count > 0)
             {
                 foreach (var input in tx.TxInputsExt)
                 {
@@ -98,7 +109,7 @@ namespace XChainSDK
                 }
             }
 
-            if (tx.TxOutputsExt != null && tx.TxOutputsExt.Length > 0)
+            if (tx.TxOutputsExt != null && tx.TxOutputsExt.Count > 0)
             {
                 foreach (var output in tx.TxOutputsExt)
                 {
@@ -111,22 +122,34 @@ namespace XChainSDK
                 }
             }
 
-            if (tx.ContractRequests != null && tx.ContractRequests.Length > 0)
+            if (tx.ContractRequests != null && tx.ContractRequests.Count > 0)
             {
                 foreach (var cr in tx.ContractRequests)
                 {
-                    pbtx.ContractRequests.Add(new Pb.InvokeRequest
+                    var invokeReq = new Pb.InvokeRequest
                     {
                         ModuleName = cr.ModuleName,
                         ContractName = cr.ContractName,
                         MethodName = cr.MethodName,
-                        // TODO add contract args
-                    });
+                    };
+                    foreach (var arg in cr.Args)
+                    {
+                        invokeReq.Args.Add(arg.Key, ByteString.CopyFrom(arg.Value));
+                    }
+                    foreach (var limit in cr.ResourceLimits)
+                    {
+                        invokeReq.ResourceLimits.Add(new Pb.ResourceLimit
+                        {
+                            Type = (Pb.ResourceType)limit.Type,
+                            Limit = limit.Limit,
+                        });
+                    }
+                    pbtx.ContractRequests.Add(invokeReq);
                 }
             }
 
             pbtx.Initiator = tx.Initiator;
-            if (tx.InitiatorSigns != null && tx.InitiatorSigns.Length > 0)
+            if (tx.InitiatorSigns != null && tx.InitiatorSigns.Count > 0)
             {
                 foreach (var sign in tx.InitiatorSigns)
                 {
@@ -137,14 +160,14 @@ namespace XChainSDK
                     });
                 }
             }
-            if (tx.AuthRequire != null && tx.AuthRequire.Length > 0)
+            if (tx.AuthRequire != null && tx.AuthRequire.Count > 0)
             {
                 foreach (var addr in tx.AuthRequire)
                 {
                     pbtx.AuthRequire.Add(addr);
                 }
             }
-            if (tx.AuthRequireSigns != null && tx.AuthRequireSigns.Length > 0)
+            if (tx.AuthRequireSigns != null && tx.AuthRequireSigns.Count > 0)
             {
                 foreach (var sign in tx.AuthRequireSigns)
                 {
@@ -157,6 +180,148 @@ namespace XChainSDK
             }
 
             return pbtx;
+        }
+
+        public static Transaction PbTxToLocalTx(Pb.Transaction tx)
+        {
+            var localTx = new Transaction();
+            localTx.Txid = tx.Txid.ToByteArray();
+            if (!tx.Blockid.IsEmpty)
+            {
+                localTx.Blockid = tx.Blockid.ToByteArray();
+            }
+            if (tx.TxInputs != null && tx.TxInputs.Count > 0)
+            {
+                localTx.TxInputs = new List<TxInput>();
+                foreach (var input in tx.TxInputs)
+                {
+                    localTx.TxInputs.Add(new TxInput
+                    {
+                        FromAddr = input.FromAddr.ToByteArray(),
+                        Amount = input.Amount.ToByteArray(),
+                        RefOffset = input.RefOffset,
+                        RefTxid = input.RefTxid.ToByteArray(),
+                        FrozenHeight = input.FrozenHeight,
+                    });
+                }
+            }
+
+            if (tx.TxOutputs != null && tx.TxOutputs.Count > 0)
+            {
+                localTx.TxOutputs = new List<TxOutput>();
+                foreach (var output in tx.TxOutputs)
+                {
+                    localTx.TxOutputs.Add(new TxOutput
+                    {
+                        ToAddr = output.ToAddr.ToByteArray(),
+                        Amount = output.Amount.ToByteArray(),
+                        FrozenHeight = output.FrozenHeight,
+                    });
+                }
+            }
+            if (tx.Desc != null)
+            {
+                localTx.Desc = tx.Desc.ToByteArray();
+            }
+            localTx.Coinbase = tx.Coinbase;
+            localTx.Nonce = tx.Nonce;
+            localTx.Timestamp = tx.Timestamp;
+            localTx.Version = tx.Version;
+            localTx.Autogen = tx.Autogen;
+
+            if (tx.TxInputsExt != null && tx.TxInputsExt.Count > 0)
+            {
+                localTx.TxInputsExt = new List<TxInputExt>();
+                foreach (var input in tx.TxInputsExt)
+                {
+                    localTx.TxInputsExt.Add(new TxInputExt
+                    {
+                        Key = input.Key.ToByteArray(),
+                        Bucket = input.Bucket,
+                        RefTxid = input.RefTxid.ToByteArray(),
+                        RefOffset = input.RefOffset,
+                    });
+                }
+            }
+
+            if (tx.TxOutputsExt != null && tx.TxOutputsExt.Count > 0)
+            {
+                localTx.TxOutputsExt = new List<TxOutputExt>();
+                foreach (var output in tx.TxOutputsExt)
+                {
+                    localTx.TxOutputsExt.Add(new TxOutputExt
+                    {
+                        Key = output.Key.ToByteArray(),
+                        Bucket = output.Bucket,
+                        Value = output.Value.ToByteArray(),
+                    });
+                }
+            }
+
+            if (tx.ContractRequests != null && tx.ContractRequests.Count > 0)
+            {
+                localTx.ContractRequests = new List<InvokeRequest>();
+                foreach (var cr in tx.ContractRequests)
+                {
+                    var invokeReq = new InvokeRequest
+                    {
+                        ModuleName = cr.ModuleName,
+                        ContractName = cr.ContractName,
+                        MethodName = cr.MethodName,
+                    };
+                    foreach (var arg in cr.Args)
+                    {
+                        invokeReq.Args = new SortedDictionary<string, byte[]>();
+                        invokeReq.Args.Add(arg.Key, arg.Value.ToByteArray());
+                    }
+                    foreach (var limit in cr.ResourceLimits)
+                    {
+                        invokeReq.ResourceLimits = new List<ResourceLimit>();
+                        invokeReq.ResourceLimits.Add(new ResourceLimit
+                        {
+                            Type = (ResourceType)limit.Type,
+                            Limit = limit.Limit,
+                        });
+                    }
+                    localTx.ContractRequests.Add(invokeReq);
+                }
+            }
+
+            localTx.Initiator = tx.Initiator;
+            if (tx.InitiatorSigns != null && tx.InitiatorSigns.Count > 0)
+            {
+                localTx.InitiatorSigns = new List<SignatureInfo>();
+                foreach (var sign in tx.InitiatorSigns)
+                {
+                    localTx.InitiatorSigns.Add(new SignatureInfo
+                    {
+                        PublicKey = sign.PublicKey,
+                        Sign = sign.Sign.ToByteArray(),
+                    });
+                }
+            }
+            if (tx.AuthRequire != null && tx.AuthRequire.Count > 0)
+            {
+                localTx.AuthRequire = new List<string>();
+                foreach (var addr in tx.AuthRequire)
+                {
+                    localTx.AuthRequire.Add(addr);
+                }
+            }
+            if (tx.AuthRequireSigns != null && tx.AuthRequireSigns.Count > 0)
+            {
+                localTx.AuthRequireSigns = new List<SignatureInfo>();
+                foreach (var sign in tx.AuthRequireSigns)
+                {
+                    localTx.AuthRequireSigns.Add(new SignatureInfo
+                    {
+                        PublicKey = sign.PublicKey,
+                        Sign = sign.Sign.ToByteArray(),
+                    });
+                }
+            }
+
+            return localTx;
         }
     }
 }
